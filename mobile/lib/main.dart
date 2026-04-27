@@ -41,7 +41,6 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _isBootstrapping = true;
   bool _showRegister = false;
-  String _baseUrl = ApiConfig.baseUrl;
   late AuthService _authService;
 
   @override
@@ -58,8 +57,9 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     setState(() {
-      _baseUrl = storedBaseUrl;
-      _authService = AuthService(apiService: ApiService(baseUrl: _baseUrl));
+      _authService = AuthService(
+        apiService: ApiService(baseUrl: storedBaseUrl),
+      );
     });
 
     await _authService.restoreSession();
@@ -91,61 +91,6 @@ class _AuthGateState extends State<AuthGate> {
     setState(() {
       _showRegister = false;
     });
-  }
-
-  Future<void> _editServerUrl() async {
-    final controller = TextEditingController(text: _baseUrl);
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Set API base URL'),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              hintText: 'http://192.168.1.10:8000/api',
-              labelText: 'Backend URL',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(controller.text.trim()),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-
-    controller.dispose();
-
-    if (result == null || result.isEmpty) {
-      return;
-    }
-
-    await ApiConfig.saveBaseUrl(result);
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _baseUrl = result;
-      _authService = AuthService(apiService: ApiService(baseUrl: _baseUrl));
-      _showRegister = false;
-    });
-
-    await _authService.restoreSession();
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   @override

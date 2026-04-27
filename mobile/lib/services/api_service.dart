@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_user.dart';
+import 'network_discovery.dart';
 
 class ApiException implements Exception {
   ApiException(this.message);
@@ -24,9 +25,9 @@ class AuthResult {
 }
 
 class ApiService {
-  ApiService({String? baseUrl}) : baseUrl = baseUrl ?? ApiConfig.baseUrl;
+  ApiService({String? baseUrl}) : _baseUrl = baseUrl ?? ApiConfig.baseUrl;
 
-  final String baseUrl;
+  String _baseUrl;
   static const Duration _requestTimeout = Duration(seconds: 15);
 
   Future<AuthResult> register({
@@ -34,39 +35,24 @@ class ApiService {
     required String email,
     required String password,
   }) {
-    return _postAuth(
-      '/register',
-      {
-        'name': name,
-        'email': email,
-        'password': password,
-      },
-    );
+    return _postAuth('/register', {
+      'name': name,
+      'email': email,
+      'password': password,
+    });
   }
 
-  Future<AuthResult> login({
-    required String email,
-    required String password,
-  }) {
-    return _postAuth(
-      '/login',
-      {
-        'email': email,
-        'password': password,
-      },
-    );
+  Future<AuthResult> login({required String email, required String password}) {
+    return _postAuth('/login', {'email': email, 'password': password});
   }
 
   Future<AppUser> me(String token) async {
     late final http.Response response;
 
     try {
-      response = await http
-          .get(
-            _uri('/me'),
-            headers: _headers(token: token),
-          )
-          .timeout(_requestTimeout);
+      response = await _sendWithRecovery(
+        () => http.get(_uri('/me'), headers: _headers(token: token)),
+      );
     } catch (_) {
       throw ApiException(
         'Unable to reach the Laravel API. Check the PC IP/base URL and make sure the backend is running.',
@@ -74,10 +60,12 @@ class ApiService {
     }
 
     if (response.statusCode != 200) {
-      throw ApiException(_messageFromResponse(
-        response,
-        fallback: 'Failed to load current user.',
-      ));
+      throw ApiException(
+        _messageFromResponse(
+          response,
+          fallback: 'Failed to load current user.',
+        ),
+      );
     }
 
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -94,12 +82,9 @@ class ApiService {
     late final http.Response response;
 
     try {
-      response = await http
-          .post(
-            _uri('/logout'),
-            headers: _headers(token: token),
-          )
-          .timeout(_requestTimeout);
+      response = await _sendWithRecovery(
+        () => http.post(_uri('/logout'), headers: _headers(token: token)),
+      );
     } catch (_) {
       throw ApiException(
         'Unable to reach the Laravel API. Check the PC IP/base URL and make sure the backend is running.',
@@ -107,10 +92,9 @@ class ApiService {
     }
 
     if (response.statusCode != 200) {
-      throw ApiException(_messageFromResponse(
-        response,
-        fallback: 'Failed to log out.',
-      ));
+      throw ApiException(
+        _messageFromResponse(response, fallback: 'Failed to log out.'),
+      );
     }
   }
 
@@ -121,13 +105,13 @@ class ApiService {
     late final http.Response response;
 
     try {
-      response = await http
-          .post(
-            _uri(path),
-            headers: _headers(),
-            body: jsonEncode(payload),
-          )
-          .timeout(_requestTimeout);
+      response = await _sendWithRecovery(
+        () => http.post(
+          _uri(path),
+          headers: _headers(),
+          body: jsonEncode(payload),
+        ),
+      );
     } catch (_) {
       throw ApiException(
         'Unable to reach the Laravel API. Check the PC IP/base URL and make sure the backend is running.',
@@ -135,10 +119,12 @@ class ApiService {
     }
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw ApiException(_messageFromResponse(
-        response,
-        fallback: 'Authentication request failed.',
-      ));
+      throw ApiException(
+        _messageFromResponse(
+          response,
+          fallback: 'Authentication request failed.',
+        ),
+      );
     }
 
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -149,13 +135,46 @@ class ApiService {
       throw ApiException('Authentication response was incomplete.');
     }
 
-    return AuthResult(
-      user: AppUser.fromJson(data),
-      token: token,
-    );
+    return AuthResult(user: AppUser.fromJson(data), token: token);
   }
 
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
+
+  String get baseUrl => _baseUrl;
+
+  Future<http.Response> _sendWithRecovery(
+    Future<http.Response> Function() sender,
+  ) async {
+    try {
+      return await sender().timeout(_requestTimeout);
+    } catch (_) {
+      final recovered = await _recoverBaseUrl();
+
+      if (!recovered) {
+        rethrow;
+      }
+
+      return await sender().timeout(_requestTimeout);
+    }
+  }
+
+  Future<bool> _recoverBaseUrl() async {
+    final discoveredBaseUrl = await discoverLocalApiBaseUrl();
+
+    if (discoveredBaseUrl == null || discoveredBaseUrl.trim().isEmpty) {
+      return false;
+    }
+
+    final cleaned = discoveredBaseUrl.trim();
+
+    if (cleaned == _baseUrl) {
+      return false;
+    }
+
+    _baseUrl = cleaned;
+    await ApiConfig.saveBaseUrl(cleaned);
+    return true;
+  }
 
   Map<String, String> _headers({String? token}) {
     final headers = <String, String>{
@@ -170,7 +189,10 @@ class ApiService {
     return headers;
   }
 
-  String _messageFromResponse(http.Response response, {required String fallback}) {
+  String _messageFromResponse(
+    http.Response response, {
+    required String fallback,
+  }) {
     try {
       final decoded = jsonDecode(response.body);
 
@@ -183,7 +205,9 @@ class ApiService {
         final errors = decoded['errors'];
         if (errors is Map<String, dynamic> && errors.isNotEmpty) {
           final firstValue = errors.values.first;
-          if (firstValue is List && firstValue.isNotEmpty && firstValue.first is String) {
+          if (firstValue is List &&
+              firstValue.isNotEmpty &&
+              firstValue.first is String) {
             return firstValue.first as String;
           }
         }
@@ -205,7 +229,18 @@ class ApiConfig {
     final storedBaseUrl = preferences.getString(_storedBaseUrlKey);
 
     if (storedBaseUrl != null && storedBaseUrl.trim().isNotEmpty) {
-      return storedBaseUrl.trim();
+      final cleaned = storedBaseUrl.trim();
+
+      if (await _isReachable(cleaned)) {
+        return cleaned;
+      }
+    }
+
+    final discoveredBaseUrl = await discoverLocalApiBaseUrl();
+
+    if (discoveredBaseUrl != null && discoveredBaseUrl.trim().isNotEmpty) {
+      await preferences.setString(_storedBaseUrlKey, discoveredBaseUrl.trim());
+      return discoveredBaseUrl.trim();
     }
 
     return baseUrl;
@@ -214,6 +249,17 @@ class ApiConfig {
   static Future<void> saveBaseUrl(String baseUrl) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_storedBaseUrlKey, baseUrl.trim());
+  }
+
+  static Future<bool> _isReachable(String baseUrl) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/health'))
+          .timeout(const Duration(seconds: 2));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   static String get baseUrl {
