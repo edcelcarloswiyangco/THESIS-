@@ -7,15 +7,11 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
     required this.authService,
-    required this.serverUrl,
-    required this.onEditServerUrl,
     required this.onSwitchToRegister,
     required this.onAuthenticated,
   });
 
   final AuthService authService;
-  final String serverUrl;
-  final VoidCallback onEditServerUrl;
   final VoidCallback onSwitchToRegister;
   final VoidCallback onAuthenticated;
 
@@ -60,7 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     } catch (_) {
       setState(() {
-        _errorMessage = 'Unable to connect to the server. Check the backend URL and try again.';
+        _errorMessage =
+            'Unable to connect to the server. Check the backend URL and try again.';
       });
     } finally {
       if (mounted) {
@@ -91,9 +88,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: _AuthCard(
                   eyebrow: 'Client Access',
                   title: 'Login to the mobile app',
-                  subtitle: 'Use your registered account to enter the homepage.',
-                  serverUrl: widget.serverUrl,
-                  onEditServerUrl: widget.onEditServerUrl,
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -116,7 +110,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _passwordController,
                           obscureText: true,
-                          decoration: const InputDecoration(labelText: 'Password'),
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                          ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Enter your password';
@@ -126,10 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 14),
-                          _MessageBanner(
-                            text: _errorMessage!,
-                            isError: true,
-                          ),
+                          _MessageBanner(text: _errorMessage!, isError: true),
                         ],
                         const SizedBox(height: 18),
                         SizedBox(
@@ -161,17 +154,11 @@ class _AuthCard extends StatelessWidget {
   const _AuthCard({
     required this.eyebrow,
     required this.title,
-    required this.subtitle,
-    required this.serverUrl,
-    required this.onEditServerUrl,
     required this.child,
   });
 
   final String eyebrow;
   final String title;
-  final String subtitle;
-  final String serverUrl;
-  final VoidCallback onEditServerUrl;
   final Widget child;
 
   @override
@@ -208,27 +195,6 @@ class _AuthCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
               height: 1.1,
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(subtitle, style: const TextStyle(color: Color(0xFF627D98))),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'API: $serverUrl',
-                  style: const TextStyle(
-                    color: Color(0xFF627D98),
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              TextButton(
-                onPressed: onEditServerUrl,
-                child: const Text('Change'),
-              ),
-            ],
           ),
           const SizedBox(height: 24),
           child,

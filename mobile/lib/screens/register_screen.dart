@@ -7,15 +7,11 @@ class RegisterScreen extends StatefulWidget {
   const RegisterScreen({
     super.key,
     required this.authService,
-    required this.serverUrl,
-    required this.onEditServerUrl,
     required this.onSwitchToLogin,
     required this.onAuthenticated,
   });
 
   final AuthService authService;
-  final String serverUrl;
-  final VoidCallback onEditServerUrl;
   final VoidCallback onSwitchToLogin;
   final VoidCallback onAuthenticated;
 
@@ -63,7 +59,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
     } catch (_) {
       setState(() {
-        _errorMessage = 'Unable to connect to the server. Check the backend URL and try again.';
+        _errorMessage =
+            'Unable to connect to the server. Check the backend URL and try again.';
       });
     } finally {
       if (mounted) {
@@ -94,9 +91,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: _AuthCard(
                   eyebrow: 'New Client',
                   title: 'Create your account',
-                  subtitle: 'Register first, then use the mobile app login.',
-                  serverUrl: widget.serverUrl,
-                  onEditServerUrl: widget.onEditServerUrl,
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -130,7 +124,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         TextFormField(
                           controller: _passwordController,
                           obscureText: true,
-                          decoration: const InputDecoration(labelText: 'Password'),
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                          ),
                           validator: (value) {
                             if (value == null || value.length < 6) {
                               return 'Use at least 6 characters';
@@ -140,17 +136,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 14),
-                          _MessageBanner(
-                            text: _errorMessage!,
-                            isError: true,
-                          ),
+                          _MessageBanner(text: _errorMessage!, isError: true),
                         ],
                         const SizedBox(height: 18),
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton(
                             onPressed: _isLoading ? null : _submit,
-                            child: Text(_isLoading ? 'Creating...' : 'Register'),
+                            child: Text(
+                              _isLoading ? 'Creating...' : 'Register',
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -175,17 +170,11 @@ class _AuthCard extends StatelessWidget {
   const _AuthCard({
     required this.eyebrow,
     required this.title,
-    required this.subtitle,
-    required this.serverUrl,
-    required this.onEditServerUrl,
     required this.child,
   });
 
   final String eyebrow;
   final String title;
-  final String subtitle;
-  final String serverUrl;
-  final VoidCallback onEditServerUrl;
   final Widget child;
 
   @override
@@ -222,27 +211,6 @@ class _AuthCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
               height: 1.1,
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(subtitle, style: const TextStyle(color: Color(0xFF627D98))),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'API: $serverUrl',
-                  style: const TextStyle(
-                    color: Color(0xFF627D98),
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              TextButton(
-                onPressed: onEditServerUrl,
-                child: const Text('Change'),
-              ),
-            ],
           ),
           const SizedBox(height: 24),
           child,

@@ -115,7 +115,8 @@ class _AuthGateState extends State<AuthGate> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(controller.text.trim()),
               child: const Text('Save'),
             ),
           ],
@@ -150,25 +151,18 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_isBootstrapping) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final currentUser = _authService.currentUser;
 
     if (currentUser != null) {
-      return HomeScreen(
-        user: currentUser,
-        onLogout: _handleLogout,
-      );
+      return HomeScreen(user: currentUser, onLogout: _handleLogout);
     }
 
     if (_showRegister) {
       return RegisterScreen(
         authService: _authService,
-        serverUrl: _baseUrl,
-        onEditServerUrl: _editServerUrl,
         onSwitchToLogin: () => setState(() {
           _showRegister = false;
         }),
@@ -178,8 +172,6 @@ class _AuthGateState extends State<AuthGate> {
 
     return LoginScreen(
       authService: _authService,
-      serverUrl: _baseUrl,
-      onEditServerUrl: _editServerUrl,
       onSwitchToRegister: () => setState(() {
         _showRegister = true;
       }),
