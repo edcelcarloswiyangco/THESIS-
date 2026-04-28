@@ -16,6 +16,8 @@ class AuthService {
 
   AppUser? get currentUser => _currentUser;
 
+  ApiService get apiService => _apiService;
+
   Future<void> restoreSession() async {
     _preferences ??= await SharedPreferences.getInstance();
     final storedToken = _preferences!.getString(_tokenKey);

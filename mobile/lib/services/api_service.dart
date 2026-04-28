@@ -28,6 +28,7 @@ class ApiService {
   ApiService({String? baseUrl}) : _baseUrl = baseUrl ?? ApiConfig.baseUrl;
 
   String _baseUrl;
+  String get baseUrl => _baseUrl;
   static const Duration _requestTimeout = Duration(seconds: 15);
 
   Future<AuthResult> register({
@@ -143,8 +144,6 @@ class ApiService {
   }
 
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
-
-  String get baseUrl => _baseUrl;
 
   Future<http.Response> _sendWithRecovery(
     Future<http.Response> Function() sender,

@@ -87,7 +87,6 @@ class _AuthGateState extends State<AuthGate> {
     if (!mounted) {
       return;
     }
-
     setState(() {
       _showRegister = false;
     });
