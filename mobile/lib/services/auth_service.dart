@@ -15,6 +15,7 @@ class AuthService {
   AppUser? _currentUser;
 
   AppUser? get currentUser => _currentUser;
+  String? get token => _token;
 
   ApiService get apiService => _apiService;
 

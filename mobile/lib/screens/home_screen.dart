@@ -1,105 +1,385 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
+import '../services/auth_service.dart';
+import 'report_animal_screen.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, required this.user, required this.onLogout});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({
+    super.key,
+    required this.user,
+    required this.authService,
+    required this.onLogout,
+  });
+
+  final AppUser user;
+  final AuthService authService;
+  final Future<void> Function() onLogout;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+
+  void _goToTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  Future<void> _handleReportSubmitted() async {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _currentIndex = 0;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Report submitted successfully.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = <Widget>[
+      _DashboardTab(
+        user: widget.user,
+        onMyPetsTap: () => _goToTab(1),
+        onReportTap: () => _goToTab(2),
+        onRegisterPetTap: () => _goToTab(1),
+      ),
+      _PetsTab(onRegisterPetTap: () => _goToTab(1)),
+      ReportAnimalScreen(
+        user: widget.user,
+        authService: widget.authService,
+        onSubmittedSuccessfully: _handleReportSubmitted,
+      ),
+      _ProfileTab(user: widget.user, onLogout: widget.onLogout),
+    ];
+
+    return Scaffold(
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: tabs[_currentIndex],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF0F766E),
+        unselectedItemColor: const Color(0xFF829AB1),
+        onTap: _goToTab,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.pets_outlined),
+            activeIcon: Icon(Icons.pets),
+            label: 'Pets',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.report_outlined),
+            activeIcon: Icon(Icons.report),
+            label: 'Report',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardTab extends StatelessWidget {
+  const _DashboardTab({
+    required this.user,
+    required this.onMyPetsTap,
+    required this.onReportTap,
+    required this.onRegisterPetTap,
+  });
+
+  final AppUser user;
+  final VoidCallback onMyPetsTap;
+  final VoidCallback onReportTap;
+  final VoidCallback onRegisterPetTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF102A43), Color(0xFF1F8A70), Color(0xFFF4F7F7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hello, ${user.name}',
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1.05,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Keep your pets safe and report animals quickly.',
+                style: TextStyle(color: Color(0xFFD9E2EC), fontSize: 15),
+              ),
+              const SizedBox(height: 24),
+              GridView(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 1.05,
+                ),
+                children: [
+                  _DashboardCard(
+                    title: 'My Pets',
+                    icon: Icons.pets,
+                    onTap: onMyPetsTap,
+                  ),
+                  _DashboardCard(
+                    title: 'Report Animal',
+                    icon: Icons.report,
+                    onTap: onReportTap,
+                  ),
+                  _DashboardCard(
+                    title: 'Register Pet',
+                    icon: Icons.add_circle_outline,
+                    onTap: onRegisterPetTap,
+                  ),
+                  _DashboardCard(
+                    title: 'Profile',
+                    icon: Icons.person,
+                    onTap: () {},
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Quick Notes',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Use the Report Animal button to send stray or injured animal reports with photo and GPS location.',
+                      style: TextStyle(
+                        color: Colors.grey.shade800,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardCard extends StatelessWidget {
+  const _DashboardCard({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFD9E2EC)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                height: 54,
+                width: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6FFFB),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(icon, color: const Color(0xFF0F766E), size: 30),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PetsTab extends StatelessWidget {
+  const _PetsTab({required this.onRegisterPetTap});
+
+  final VoidCallback onRegisterPetTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'My Pets',
+              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFD9E2EC)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'No pets registered yet.',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap Register Pet when you are ready to add a pet profile.',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: onRegisterPetTap,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Register Pet'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileTab extends StatelessWidget {
+  const _ProfileTab({required this.user, required this.onLogout});
 
   final AppUser user;
   final Future<void> Function() onLogout;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF102A43), Color(0xFF1F8A70), Color(0xFFF4F7F7)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: Padding(
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Profile',
+              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(20),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Container(
-                  padding: const EdgeInsets.all(28),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x22000000),
-                        blurRadius: 24,
-                        offset: Offset(0, 12),
-                      ),
-                    ],
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFD9E2EC)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.name,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Welcome back',
-                        style: TextStyle(
-                          color: Color(0xFF0F766E),
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        user.name,
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        user.email,
-                        style: const TextStyle(
-                          color: Color(0xFF627D98),
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFFD9E2EC)),
-                        ),
-                        child: Text(
-                          'You are logged in to the client homepage.\n\nThis screen stays visible until you log out.',
-                          style: TextStyle(
-                            color: Colors.grey.shade800,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: () async {
-                            await onLogout();
-                          },
-                          child: const Text('Logout'),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 6),
+                  Text(
+                    user.email,
+                    style: const TextStyle(color: Color(0xFF627D98)),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  Text('Contact: ${user.contactNumber}'),
+                  const SizedBox(height: 4),
+                  Text('Address: ${user.address}'),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        await onLogout();
+                      },
+                      child: const Text('Logout'),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

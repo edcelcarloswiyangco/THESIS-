@@ -101,7 +101,11 @@ class _AuthGateState extends State<AuthGate> {
     final currentUser = _authService.currentUser;
 
     if (currentUser != null) {
-      return HomeScreen(user: currentUser, onLogout: _handleLogout);
+      return HomeScreen(
+        user: currentUser,
+        authService: _authService,
+        onLogout: _handleLogout,
+      );
     }
 
     if (_showRegister) {

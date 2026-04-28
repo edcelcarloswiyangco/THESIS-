@@ -24,6 +24,10 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to capture animal reports.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to attach GPS coordinates to reports.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

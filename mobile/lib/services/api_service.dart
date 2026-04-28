@@ -51,6 +51,54 @@ class ApiService {
     return _postAuth('/login', {'email': email, 'password': password});
   }
 
+  Future<Map<String, dynamic>> submitAnimalReport({
+    required String token,
+    required String reportType,
+    required String animalType,
+    required String locationText,
+    required String description,
+    required Uint8List imageBytes,
+    required String imageName,
+    double? latitude,
+    double? longitude,
+  }) async {
+    final response = await _sendMultipartWithRecovery(() {
+      final request = http.MultipartRequest('POST', _uri('/reports'));
+      request.headers.addAll(_headers(token: token)..remove('Content-Type'));
+      request.fields.addAll({
+        'report_type': reportType,
+        'animal_type': animalType,
+        'location_text': locationText,
+        'description': description,
+        if (latitude != null) 'latitude': latitude.toString(),
+        if (longitude != null) 'longitude': longitude.toString(),
+      });
+      request.files.add(
+        http.MultipartFile.fromBytes('image', imageBytes, filename: imageName),
+      );
+      return request;
+    });
+
+    final streamedResponse = await http.Response.fromStream(response);
+
+    if (streamedResponse.statusCode != 200 &&
+        streamedResponse.statusCode != 201) {
+      throw ApiException(
+        _messageFromResponse(
+          streamedResponse,
+          fallback: 'Failed to submit report.',
+        ),
+      );
+    }
+
+    final decoded = jsonDecode(streamedResponse.body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+
+    return const {};
+  }
+
   Future<AppUser> me(String token) async {
     late final http.Response response;
 
@@ -158,6 +206,22 @@ class ApiService {
       }
 
       return await sender().timeout(_requestTimeout);
+    }
+  }
+
+  Future<http.StreamedResponse> _sendMultipartWithRecovery(
+    http.MultipartRequest Function() builder,
+  ) async {
+    try {
+      return await builder().send().timeout(_requestTimeout);
+    } catch (_) {
+      final recovered = await _recoverBaseUrl();
+
+      if (!recovered) {
+        rethrow;
+      }
+
+      return await builder().send().timeout(_requestTimeout);
     }
   }
 
