@@ -45,14 +45,18 @@ class AuthService {
   }
 
   Future<AppUser> register({
-    required String name,
+    required String fullName,
     required String email,
     required String password,
+    required String contactNumber,
+    required String address,
   }) async {
     final result = await _apiService.register(
-      name: name,
+      fullName: fullName,
       email: email,
       password: password,
+      contactNumber: contactNumber,
+      address: address,
     );
     await _saveSession(result.token, result.user);
     return result.user;

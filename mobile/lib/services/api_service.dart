@@ -31,14 +31,18 @@ class ApiService {
   static const Duration _requestTimeout = Duration(seconds: 15);
 
   Future<AuthResult> register({
-    required String name,
+    required String fullName,
     required String email,
     required String password,
+    required String contactNumber,
+    required String address,
   }) {
     return _postAuth('/register', {
-      'name': name,
+      'full_name': fullName,
       'email': email,
       'password': password,
+      'contact_number': contactNumber,
+      'address': address,
     });
   }
 

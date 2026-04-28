@@ -12,7 +12,7 @@ class AuthController extends Controller
 {
     public function create(): View|RedirectResponse
     {
-        if (Auth::check() && Auth::user()?->is_admin) {
+        if (Auth::guard('admin')->check()) {
             return redirect()->route('admin.dashboard');
         }
 
@@ -26,10 +26,9 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt([
+        if (! Auth::guard('admin')->attempt([
             'email' => $credentials['email'],
             'password' => $credentials['password'],
-            'is_admin' => true,
         ], $request->boolean('remember'))) {
             return back()
                 ->withInput($request->only('email'))
@@ -45,7 +44,7 @@ class AuthController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
-        Auth::logout();
+        Auth::guard('admin')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

@@ -21,8 +21,10 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _contactNumberController = TextEditingController();
+  final _addressController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
@@ -30,8 +32,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _fullNameController.dispose();
     _emailController.dispose();
+    _contactNumberController.dispose();
+    _addressController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -48,9 +52,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       await widget.authService.register(
-        name: _nameController.text.trim(),
+        fullName: _fullNameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        contactNumber: _contactNumberController.text.trim(),
+        address: _addressController.text.trim(),
       );
       widget.onAuthenticated();
     } on ApiException catch (error) {
@@ -96,11 +102,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Column(
                       children: [
                         TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(labelText: 'Name'),
+                          controller: _fullNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Full Name',
+                          ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Enter your name';
+                              return 'Enter your full name';
                             }
                             return null;
                           },
@@ -116,6 +124,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             }
                             if (!value.contains('@')) {
                               return 'Enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _contactNumberController,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            labelText: 'Contact Number',
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter your contact number';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _addressController,
+                          decoration: const InputDecoration(labelText: 'Address'),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter your address';
                             }
                             return null;
                           },

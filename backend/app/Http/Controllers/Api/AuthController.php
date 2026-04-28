@@ -15,16 +15,20 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'full_name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6'],
+            'contact_number' => ['required', 'string', 'max:20'],
+            'address' => ['required', 'string', 'max:255'],
         ]);
 
         $user = User::query()->create([
-            'name' => $validated['name'],
+            'name' => $validated['full_name'],
+            'full_name' => $validated['full_name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'is_admin' => false,
+            'contact_number' => $validated['contact_number'],
+            'address' => $validated['address'],
         ]);
 
         return response()->json($this->issueTokenResponse($user), 201);
@@ -51,7 +55,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return response()->json([
-            'data' => $request->user()?->only(['id', 'name', 'email', 'is_admin']),
+            'data' => $this->serializeUser($request->user()),
         ]);
     }
 
@@ -83,7 +87,24 @@ class AuthController extends Controller
         return [
             'token_type' => 'Bearer',
             'token' => $plainTextToken,
-            'data' => $user->only(['id', 'name', 'email', 'is_admin']),
+            'data' => $this->serializeUser($user),
+        ];
+    }
+
+    private function serializeUser(?User $user): ?array
+    {
+        if (! $user) {
+            return null;
+        }
+
+        return [
+            'id' => $user->id,
+            'full_name' => $user->full_name,
+            'name' => $user->full_name,
+            'email' => $user->email,
+            'contact_number' => $user->contact_number,
+            'address' => $user->address,
+            'is_admin' => false,
         ];
     }
 }

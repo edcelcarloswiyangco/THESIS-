@@ -86,8 +86,8 @@ class _LoginScreenState extends State<LoginScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 440),
                 child: _AuthCard(
-                  eyebrow: 'Client Access',
-                  title: 'Login to the mobile app',
+                  eyebrow: 'Welcome back,',
+                  title: 'Login ',
                   child: Form(
                     key: _formKey,
                     child: Column(
