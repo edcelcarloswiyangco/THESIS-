@@ -6,10 +6,37 @@ use App\Http\Controllers\Controller;
 use App\Models\AnimalReport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class ReportController extends Controller
 {
+    public function index(Request $request): JsonResponse
+    {
+        $reports = AnimalReport::query()
+            ->where('user_id', $request->user()->id)
+            ->latest('id')
+            ->get();
+
+        return response()->json([
+            'data' => $reports->map(function (AnimalReport $report) {
+                return [
+                    'id' => $report->id,
+                    'report_type' => $report->report_type,
+                    'animal_type' => $report->animal_type,
+                    'location_text' => $report->location_text,
+                    'latitude' => $report->latitude,
+                    'longitude' => $report->longitude,
+                    'description' => $report->description,
+                    'image_path' => $report->image_path,
+                    'image_paths' => $report->image_paths ?? [$report->image_path],
+                    'video_path' => $report->video_path,
+                    'status' => $report->status,
+                    'resolved_at' => optional($report->resolved_at)->toIso8601String(),
+                    'created_at' => optional($report->created_at)->toIso8601String(),
+                ];
+            }),
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -19,10 +46,20 @@ class ReportController extends Controller
             'latitude' => ['nullable', 'numeric'],
             'longitude' => ['nullable', 'numeric'],
             'description' => ['required', 'string'],
-            'image' => ['required', 'image', 'max:5120'],
+            'images' => ['required', 'array', 'min:1', 'max:5'],
+            'images.*' => ['required', 'image', 'max:5120'],
+            'video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/x-msvideo,video/x-matroska', 'max:51200'],
         ]);
 
-        $path = $request->file('image')->store('reports', 'public');
+        $paths = [];
+        foreach ($request->file('images', []) as $imageFile) {
+            $paths[] = $imageFile->store('reports', 'public');
+        }
+
+        $primaryImagePath = $paths[0] ?? null;
+        $videoPath = $request->hasFile('video')
+            ? $request->file('video')->store('reports', 'public')
+            : null;
 
         $report = AnimalReport::query()->create([
             'user_id' => $request->user()->id,
@@ -32,7 +69,9 @@ class ReportController extends Controller
             'latitude' => $validated['latitude'] ?? null,
             'longitude' => $validated['longitude'] ?? null,
             'description' => $validated['description'],
-            'image_path' => $path,
+            'image_path' => $primaryImagePath,
+            'image_paths' => $paths,
+            'video_path' => $videoPath,
             'status' => 'pending',
         ]);
 
@@ -47,7 +86,10 @@ class ReportController extends Controller
                 'longitude' => $report->longitude,
                 'description' => $report->description,
                 'image_path' => $report->image_path,
+                'image_paths' => $report->image_paths ?? [$report->image_path],
+                'video_path' => $report->video_path,
                 'status' => $report->status,
+                'resolved_at' => optional($report->resolved_at)->toIso8601String(),
             ],
         ], 201);
     }

@@ -19,7 +19,10 @@ class AnimalReport extends Model
         'longitude',
         'description',
         'image_path',
+        'image_paths',
+        'video_path',
         'status',
+        'resolved_at',
     ];
 
     protected function casts(): array
@@ -27,6 +30,8 @@ class AnimalReport extends Model
         return [
             'latitude' => 'decimal:8',
             'longitude' => 'decimal:8',
+            'image_paths' => 'array',
+            'resolved_at' => 'datetime',
         ];
     }
 

@@ -21,7 +21,9 @@ return new class extends Migration
             $table->decimal('longitude', 10, 7)->nullable();
             $table->text('description');
             $table->string('image_path');
+            $table->string('video_path')->nullable();
             $table->string('status')->default('pending');
+            $table->timestamp('resolved_at')->nullable();
             $table->timestamps();
         });
     }

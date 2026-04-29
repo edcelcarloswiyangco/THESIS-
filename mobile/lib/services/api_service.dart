@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_user.dart';
+import '../models/animal_report.dart';
 import 'network_discovery.dart';
 
 class ApiException implements Exception {
@@ -24,11 +25,40 @@ class AuthResult {
   final String token;
 }
 
+class ReportUploadImage {
+  ReportUploadImage({required this.bytes, required this.name});
+
+  final Uint8List bytes;
+  final String name;
+}
+
+class ReportUploadVideo {
+  ReportUploadVideo({required this.bytes, required this.name});
+
+  final Uint8List bytes;
+  final String name;
+}
+
+class ReportListResult {
+  ReportListResult({required this.reports});
+
+  final List<AnimalReport> reports;
+}
+
 class ApiService {
   ApiService({String? baseUrl}) : _baseUrl = baseUrl ?? ApiConfig.baseUrl;
 
   String _baseUrl;
   String get baseUrl => _baseUrl;
+  Future<void> setBaseUrl(String baseUrl) async {
+    final cleaned = baseUrl.trim();
+    if (cleaned.isEmpty) {
+      return;
+    }
+
+    _baseUrl = cleaned;
+    await ApiConfig.saveBaseUrl(cleaned);
+  }
   static const Duration _requestTimeout = Duration(seconds: 15);
 
   Future<AuthResult> register({
@@ -57,11 +87,15 @@ class ApiService {
     required String animalType,
     required String locationText,
     required String description,
-    required Uint8List imageBytes,
-    required String imageName,
+    required List<ReportUploadImage> images,
+    ReportUploadVideo? video,
     double? latitude,
     double? longitude,
   }) async {
+    if (images.isEmpty || images.length > 5) {
+      throw ApiException('Please provide 1 to 5 photos.');
+    }
+
     final response = await _sendMultipartWithRecovery(() {
       final request = http.MultipartRequest('POST', _uri('/reports'));
       request.headers.addAll(_headers(token: token)..remove('Content-Type'));
@@ -73,9 +107,25 @@ class ApiService {
         if (latitude != null) 'latitude': latitude.toString(),
         if (longitude != null) 'longitude': longitude.toString(),
       });
-      request.files.add(
-        http.MultipartFile.fromBytes('image', imageBytes, filename: imageName),
-      );
+      for (final image in images) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'images[]',
+            image.bytes,
+            filename: image.name,
+          ),
+        );
+      }
+
+      if (video != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'video',
+            video.bytes,
+            filename: video.name,
+          ),
+        );
+      }
       return request;
     });
 
@@ -97,6 +147,47 @@ class ApiService {
     }
 
     return const {};
+  }
+
+  Future<List<AnimalReport>> fetchReports(String token) async {
+    late final http.Response response;
+
+    try {
+      response = await _sendWithRecovery(
+        () => http.get(_uri('/reports'), headers: _headers(token: token)),
+      );
+    } catch (_) {
+      throw ApiException(
+        'Unable to reach the Laravel API. Check the PC IP/base URL and make sure the backend is running.',
+      );
+    }
+
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _messageFromResponse(response, fallback: 'Failed to load reports.'),
+      );
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = decoded['data'];
+
+    if (data is! List) {
+      return const [];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(AnimalReport.fromJson)
+        .toList();
+  }
+
+  String mediaUrl(String path) {
+    final cleanedPath = path.startsWith('/') ? path.substring(1) : path;
+    final baseUri = Uri.parse(baseUrl);
+    final apiRoot = '${baseUri.scheme}://${baseUri.authority}';
+    return Uri.parse('$apiRoot/media').replace(
+      queryParameters: {'path': cleanedPath},
+    ).toString();
   }
 
   Future<AppUser> me(String token) async {
@@ -289,6 +380,7 @@ class ApiService {
 
 class ApiConfig {
   static const String overrideBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const String defaultLanBaseUrl = 'http://100.83.103.85:8000/api';
   static const String _storedBaseUrlKey = 'api_base_url';
 
   static Future<String> loadBaseUrl() async {
@@ -310,7 +402,7 @@ class ApiConfig {
       return discoveredBaseUrl.trim();
     }
 
-    return baseUrl;
+    return defaultLanBaseUrl;
   }
 
   static Future<void> saveBaseUrl(String baseUrl) async {
@@ -340,7 +432,7 @@ class ApiConfig {
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return 'http://10.0.2.2:8000/api';
+        return defaultLanBaseUrl;
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:
       case TargetPlatform.windows:

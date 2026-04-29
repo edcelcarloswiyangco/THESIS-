@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
 import 'report_animal_screen.dart';
+import 'report_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -29,17 +30,23 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _handleReportSubmitted() async {
-    if (!mounted) {
-      return;
-    }
+  Future<void> _openReportForm() async {
+    final routeContext = context;
 
-    setState(() {
-      _currentIndex = 0;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Report submitted successfully.')),
+    await Navigator.of(routeContext).push<bool>(
+      MaterialPageRoute(
+        builder: (dialogContext) => Scaffold(
+          body: ReportAnimalScreen(
+            user: widget.user,
+            authService: widget.authService,
+            onSubmittedSuccessfully: () async {
+              if (Navigator.of(dialogContext).canPop()) {
+                Navigator.of(dialogContext).pop(true);
+              }
+            },
+          ),
+        ),
+      ),
     );
   }
 
@@ -49,15 +56,11 @@ class _HomeScreenState extends State<HomeScreen> {
       _DashboardTab(
         user: widget.user,
         onMyPetsTap: () => _goToTab(1),
-        onReportTap: () => _goToTab(2),
+        onReportTap: _openReportForm,
         onRegisterPetTap: () => _goToTab(1),
       ),
       _PetsTab(onRegisterPetTap: () => _goToTab(1)),
-      ReportAnimalScreen(
-        user: widget.user,
-        authService: widget.authService,
-        onSubmittedSuccessfully: _handleReportSubmitted,
-      ),
+      ReportListScreen(authService: widget.authService),
       _ProfileTab(user: widget.user, onLogout: widget.onLogout),
     ];
 
