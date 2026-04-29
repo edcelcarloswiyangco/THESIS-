@@ -25,15 +25,12 @@ class AnimalReport extends Model
         'resolved_at',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'latitude' => 'decimal:8',
-            'longitude' => 'decimal:8',
-            'image_paths' => 'array',
-            'resolved_at' => 'datetime',
-        ];
-    }
+    protected $casts = [
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8',
+        'image_paths' => 'array',
+        'resolved_at' => 'datetime',
+    ];
 
     public function user(): BelongsTo
     {

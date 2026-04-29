@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:video_player/video_player.dart';
 
 import '../models/app_user.dart';
 import '../services/api_service.dart';
@@ -92,10 +94,16 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
   LatLng _pinPoint = _defaultMapCenter;
   final List<_PickedPhoto> _photos = [];
   _PickedVideo? _video;
+  String? _videoErrorMessage;
+
+  late final TextEditingController _expandedMapSearchController;
+  late final MapController _expandedMapController;
 
   @override
   void initState() {
     super.initState();
+    _expandedMapSearchController = TextEditingController();
+    _expandedMapController = MapController();
     _setPinLocation(_defaultMapCenter, resolveAddress: false);
   }
 
@@ -103,6 +111,7 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
   void dispose() {
     _locationController.dispose();
     _descriptionController.dispose();
+    _expandedMapSearchController.dispose();
     super.dispose();
   }
 
@@ -201,6 +210,28 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
       return;
     }
 
+    // Validate file size: max 100MB
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (bytes.length > maxSize) {
+      setState(() {
+        _videoErrorMessage = 'Video must be under 100MB and 100 seconds long.';
+      });
+      return;
+    }
+
+    // Validate video duration: max 100 seconds
+    final controller = VideoPlayerController.file(File(pickedVideo.path));
+    await controller.initialize();
+    final duration = controller.value.duration;
+    await controller.dispose();
+
+    if (duration.inSeconds > 100) {
+      setState(() {
+        _videoErrorMessage = 'Video must be under 100MB and 100 seconds long.';
+      });
+      return;
+    }
+
     setState(() {
       _video = _PickedVideo(
         bytes: bytes,
@@ -209,12 +240,14 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
             : 'video_${DateTime.now().millisecondsSinceEpoch}.mp4',
       );
       _errorMessage = null;
+      _videoErrorMessage = null;
     });
   }
 
   void _removeVideo() {
     setState(() {
       _video = null;
+      _videoErrorMessage = null;
     });
   }
 
@@ -279,13 +312,9 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
   }
 
   Future<void> _openExpandedMapPicker() async {
-    final draftMapController = MapController();
+    _expandedMapSearchController.text = _locationController.text;
     LatLng draftPoint = _pinPoint;
-    final searchController = TextEditingController(
-      text: _locationController.text,
-    );
-    try {
-      final result = await showDialog<LatLng>(
+    final result = await showDialog<LatLng>(
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) {
@@ -295,7 +324,7 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
           Future<void> searchLocation(
             void Function(void Function()) setModalState,
           ) async {
-            final query = searchController.text.trim();
+            final query = _expandedMapSearchController.text.trim();
             if (query.isEmpty) {
               setModalState(() {
                 dialogError = 'Type a location first.';
@@ -321,7 +350,7 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
                 results.first.longitude,
               );
               draftPoint = point;
-              draftMapController.move(point, 18);
+              _expandedMapController.move(point, 18);
             } on ApiException catch (error) {
               setModalState(() {
                 dialogError = error.message;
@@ -358,7 +387,7 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
                           children: [
                             Expanded(
                               child: TextField(
-                                controller: searchController,
+                                controller: _expandedMapSearchController,
                                 decoration: const InputDecoration(
                                   labelText: 'Search street or address',
                                   prefixIcon: Icon(Icons.search),
@@ -407,7 +436,7 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(20),
                             child: FlutterMap(
-                              mapController: draftMapController,
+                              mapController: _expandedMapController,
                               options: MapOptions(
                                 initialCenter: draftPoint,
                                 initialZoom: 17,
@@ -473,11 +502,9 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
                               child: FilledButton(
                                 onPressed: () async {
                                   FocusManager.instance.primaryFocus?.unfocus();
-                                  await Future<void>.delayed(Duration.zero);
+                                  await Future<void>.delayed(const Duration(milliseconds: 100));
 
-                                  if (Navigator.of(dialogContext).canPop()) {
-                                    Navigator.of(dialogContext).pop(draftPoint);
-                                  }
+                                  Navigator.of(context).pop(draftPoint);
                                 },
                                 child: const Text('Use This Location'),
                               ),
@@ -498,10 +525,6 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
         await _setPinLocation(result);
         _mapController.move(result, 17);
       }
-    } finally {
-      searchController.dispose();
-      draftMapController.dispose();
-    }
   }
 
   Future<void> _openPhotoPreview(_PickedPhoto photo) async {
@@ -609,8 +632,6 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
     });
 
     if (!resolveAddress) {
-      _locationController.text =
-          'Location (${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)})';
       return;
     }
 
@@ -773,12 +794,16 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
           _errorMessage = error.message;
         });
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Unable to submit the report right now.';
+          _errorMessage = error.toString();
         });
       }
+      // ignore: avoid_print
+      print('Report submit failed: $error');
+      // ignore: avoid_print
+      print(stackTrace);
     } finally {
       if (mounted) {
         setState(() {
@@ -995,6 +1020,36 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
                         ),
                       ),
                     ],
+                    if (_videoErrorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Colors.red.shade700,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _videoErrorMessage!,
+                                style: TextStyle(
+                                  color: Colors.red.shade700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1122,57 +1177,64 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: _isSubmitting ? null : _openExpandedMapPicker,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: SizedBox(
-                          height: 180,
-                          child: Stack(
-                            children: [
-                              FlutterMap(
-                                mapController: _mapController,
-                                options: MapOptions(
-                                  initialCenter: _pinPoint,
-                                  initialZoom: 16,
-                                  minZoom: 14,
-                                  maxZoom: 19,
-                                  interactionOptions: const InteractionOptions(
-                                    flags: InteractiveFlag.none,
-                                  ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: SizedBox(
+                        height: 180,
+                        child: Stack(
+                          children: [
+                            FlutterMap(
+                              mapController: _mapController,
+                              options: MapOptions(
+                                initialCenter: _pinPoint,
+                                initialZoom: 16,
+                                minZoom: 14,
+                                maxZoom: 19,
+                                interactionOptions: const InteractionOptions(
+                                  flags: InteractiveFlag.none,
                                 ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate:
-                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName: 'com.thesis.mobile',
-                                  ),
-                                  MarkerLayer(
-                                    markers: [
-                                      Marker(
-                                        point: _pinPoint,
-                                        width: 44,
-                                        height: 44,
-                                        child: const Icon(
-                                          Icons.location_pin,
-                                          color: Colors.red,
-                                          size: 42,
-                                        ),
+                              ),
+                              children: [
+                                TileLayer(
+                                  urlTemplate:
+                                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                  userAgentPackageName: 'com.thesis.mobile',
+                                ),
+                                MarkerLayer(
+                                  markers: [
+                                    Marker(
+                                      point: _pinPoint,
+                                      width: 44,
+                                      height: 44,
+                                      child: const Icon(
+                                        Icons.location_pin,
+                                        color: Colors.red,
+                                        size: 42,
                                       ),
-                                    ],
-                                  ),
-                                ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Container(
+                              color: const Color.fromRGBO(0, 0, 0, 0.12),
+                            ),
+                            const Positioned(
+                              left: 12,
+                              bottom: 12,
+                              child: Chip(label: Text('Tap to enlarge map')),
+                            ),
+                            Positioned.fill(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _isSubmitting ? null : _openExpandedMapPicker,
+                                  splashColor: Colors.white24,
+                                  highlightColor: Colors.transparent,
+                                ),
                               ),
-                              Container(
-                                color: const Color.fromRGBO(0, 0, 0, 0.12),
-                              ),
-                              const Positioned(
-                                left: 12,
-                                bottom: 12,
-                                child: Chip(label: Text('Tap to enlarge map')),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
