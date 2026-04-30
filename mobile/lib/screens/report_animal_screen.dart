@@ -314,7 +314,8 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
   Future<void> _openExpandedMapPicker() async {
     _expandedMapSearchController.text = _locationController.text;
     LatLng draftPoint = _pinPoint;
-    final result = await showDialog<LatLng>(
+    final result = await showDialog<Map<String, dynamic>>(
+
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) {
@@ -504,7 +505,10 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
                                   FocusManager.instance.primaryFocus?.unfocus();
                                   await Future<void>.delayed(const Duration(milliseconds: 100));
 
-                                  Navigator.of(context).pop(draftPoint);
+                                  Navigator.of(context).pop({
+                                    'point': draftPoint,
+                                    'searchQuery': _expandedMapSearchController.text.trim(),
+                                  });
                                 },
                                 child: const Text('Use This Location'),
                               ),
@@ -522,8 +526,10 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
       );
 
       if (result != null && mounted) {
-        await _setPinLocation(result);
-        _mapController.move(result, 17);
+        final point = result['point'] as LatLng;
+        final searchQuery = result['searchQuery'] as String?;
+        await _setPinLocation(point, customAddress: searchQuery);
+        _mapController.move(point, 17);
       }
   }
 
@@ -620,6 +626,7 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
   Future<void> _setPinLocation(
     LatLng point, {
     bool resolveAddress = true,
+    String? customAddress,
   }) async {
     setState(() {
       _pinPoint = point;
@@ -823,9 +830,33 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Report stray animal',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  FilledButton.icon(
+                    onPressed: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Back'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Report stray animal',
+                      style:
+                          TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Text(
