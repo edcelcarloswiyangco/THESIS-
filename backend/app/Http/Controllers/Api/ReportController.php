@@ -18,6 +18,12 @@ class ReportController extends Controller
 
         return response()->json([
             'data' => $reports->map(function (AnimalReport $report) {
+                $imagePaths = $report->image_paths;
+                if (is_string($imagePaths)) {
+                    $decoded = json_decode($imagePaths, true);
+                    $imagePaths = is_array($decoded) ? $decoded : [$report->image_path];
+                }
+
                 return [
                     'id' => $report->id,
                     'report_type' => $report->report_type,
@@ -27,7 +33,7 @@ class ReportController extends Controller
                     'longitude' => $report->longitude,
                     'description' => $report->description,
                     'image_path' => $report->image_path,
-                    'image_paths' => $report->image_paths ?? [$report->image_path],
+                    'image_paths' => $imagePaths ?? [$report->image_path],
                     'video_path' => $report->video_path,
                     'status' => $report->status,
                     'resolved_at' => optional($report->resolved_at)->toIso8601String(),

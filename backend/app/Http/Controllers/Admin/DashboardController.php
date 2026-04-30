@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AnimalReport;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -16,18 +16,33 @@ class DashboardController extends Controller
     {
         $users = User::query()->latest()->get();
 
-        foreach ($users as $user) {
-            if (Schema::hasTable('reports')) {
-                $user->reports_count = DB::table('reports')->where('user_id', $user->id)->count();
-            } else {
-                $user->reports_count = 0;
-            }
+        $totalReports = Schema::hasTable('animal_reports')
+            ? DB::table('animal_reports')->count()
+            : 0;
 
+        $totalPets = Schema::hasTable('pets')
+            ? DB::table('pets')->count()
+            : 0;
+
+        foreach ($users as $user) {
+            $user->reports_count = Schema::hasTable('animal_reports')
+                ? DB::table('animal_reports')->where('user_id', $user->id)->count()
+                : 0;
             $user->status = $user->email_verified_at ? 'active' : 'inactive';
         }
 
+        $reports = Schema::hasTable('animal_reports')
+            ? AnimalReport::query()->with('user')->latest('id')->get()
+            : collect();
+
         return view('admin.dashboard', [
             'users' => $users,
+            'summary' => [
+                'total_users' => $users->count(),
+                'total_reports' => $totalReports,
+                'total_pets' => $totalPets,
+            ],
+            'reports' => $reports,
         ]);
     }
 
@@ -39,7 +54,8 @@ class DashboardController extends Controller
             'email' => $user->email,
             'contact_number' => $user->contact_number,
             'address' => $user->address,
-            'registered_at' => $user->created_at,
+            'registered_at' => $user->created_at ? $user->created_at->format('M d, Y') : null,
+            'status' => $user->email_verified_at ? 'active' : 'inactive',
         ];
 
         if (Schema::hasTable('pets')) {
@@ -48,19 +64,15 @@ class DashboardController extends Controller
             $data['pets'] = [];
         }
 
-        if (Schema::hasTable('reports')) {
-            $data['reports'] = DB::table('reports')->where('user_id', $user->id)->get();
+        if (Schema::hasTable('animal_reports')) {
+            $data['reports'] = DB::table('animal_reports')->where('user_id', $user->id)->get();
         } else {
             $data['reports'] = [];
         }
 
+        $data['pets_count'] = is_countable($data['pets']) ? count($data['pets']) : 0;
+        $data['reports_count'] = is_countable($data['reports']) ? count($data['reports']) : 0;
+
         return response()->json($data);
-    }
-
-    public function destroy(User $user): RedirectResponse
-    {
-        $user->delete();
-
-        return redirect()->route('admin.dashboard')->with('success', 'User deleted successfully.');
     }
 }

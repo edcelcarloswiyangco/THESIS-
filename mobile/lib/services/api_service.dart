@@ -45,13 +45,27 @@ class ReportListResult {
   final List<AnimalReport> reports;
 }
 
+String _normalizeBaseUrl(String baseUrl) {
+  final trimmed = baseUrl.trim();
+  if (trimmed.isEmpty) {
+    return '';
+  }
+
+  final source = trimmed.contains('://') ? trimmed : 'http://$trimmed';
+  final uri = Uri.parse(source);
+  final path = uri.path.endsWith('/') ? uri.path.substring(0, uri.path.length - 1) : uri.path;
+  final normalizedPath = path.isEmpty ? '/api' : path;
+
+  return uri.replace(path: normalizedPath).toString();
+}
+
 class ApiService {
   ApiService({String? baseUrl}) : _baseUrl = baseUrl ?? ApiConfig.baseUrl;
 
   String _baseUrl;
   String get baseUrl => _baseUrl;
   Future<void> setBaseUrl(String baseUrl) async {
-    final cleaned = baseUrl.trim();
+    final cleaned = _normalizeBaseUrl(baseUrl);
     if (cleaned.isEmpty) {
       return;
     }
@@ -59,7 +73,8 @@ class ApiService {
     _baseUrl = cleaned;
     await ApiConfig.saveBaseUrl(cleaned);
   }
-  static const Duration _requestTimeout = Duration(seconds: 15);
+
+  static const Duration _requestTimeout = Duration(seconds: 120);
 
   Future<AuthResult> register({
     required String fullName,
@@ -183,9 +198,7 @@ class ApiService {
 
   String mediaUrl(String path) {
     final cleanedPath = path.startsWith('/') ? path.substring(1) : path;
-    final baseUri = Uri.parse(baseUrl);
-    final apiRoot = '${baseUri.scheme}://${baseUri.authority}';
-    return Uri.parse('$apiRoot/media').replace(
+    return _uri('/media').replace(
       queryParameters: {'path': cleanedPath},
     ).toString();
   }
@@ -323,7 +336,7 @@ class ApiService {
       return false;
     }
 
-    final cleaned = discoveredBaseUrl.trim();
+    final cleaned = _normalizeBaseUrl(discoveredBaseUrl);
 
     if (cleaned == _baseUrl) {
       return false;
@@ -388,7 +401,7 @@ class ApiConfig {
     final storedBaseUrl = preferences.getString(_storedBaseUrlKey);
 
     if (storedBaseUrl != null && storedBaseUrl.trim().isNotEmpty) {
-      final cleaned = storedBaseUrl.trim();
+      final cleaned = _normalizeBaseUrl(storedBaseUrl);
 
       if (await _isReachable(cleaned)) {
         return cleaned;
@@ -398,8 +411,9 @@ class ApiConfig {
     final discoveredBaseUrl = await discoverLocalApiBaseUrl();
 
     if (discoveredBaseUrl != null && discoveredBaseUrl.trim().isNotEmpty) {
-      await preferences.setString(_storedBaseUrlKey, discoveredBaseUrl.trim());
-      return discoveredBaseUrl.trim();
+      final cleaned = _normalizeBaseUrl(discoveredBaseUrl);
+      await preferences.setString(_storedBaseUrlKey, cleaned);
+      return cleaned;
     }
 
     return defaultLanBaseUrl;
@@ -407,7 +421,7 @@ class ApiConfig {
 
   static Future<void> saveBaseUrl(String baseUrl) async {
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_storedBaseUrlKey, baseUrl.trim());
+    await preferences.setString(_storedBaseUrlKey, _normalizeBaseUrl(baseUrl));
   }
 
   static Future<bool> _isReachable(String baseUrl) async {

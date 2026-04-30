@@ -12,8 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('animal_reports', function (Blueprint $table) {
-            $table->string('video_path')->nullable()->after('image_path');
-            $table->timestamp('resolved_at')->nullable()->after('status');
+            // Columns already exist in create_animal_reports_table migration
+            // $table->string('video_path')->nullable()->after('image_path');
+            // $table->timestamp('resolved_at')->nullable()->after('status');
         });
     }
 
@@ -23,7 +24,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('animal_reports', function (Blueprint $table) {
-            $table->dropColumn(['video_path', 'resolved_at']);
+            // $table->dropColumn(['video_path', 'resolved_at']);
         });
     }
 };

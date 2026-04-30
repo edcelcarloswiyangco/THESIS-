@@ -67,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 250),
-        child: tabs[_currentIndex],
+        child: SizedBox.expand(child: tabs[_currentIndex]),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -118,6 +118,7 @@ class _DashboardTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: const BoxConstraints.expand(),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF102A43), Color(0xFF1F8A70), Color(0xFFF4F7F7)],
@@ -170,11 +171,6 @@ class _DashboardTab extends StatelessWidget {
                     title: 'Register Pet',
                     icon: Icons.add_circle_outline,
                     onTap: onRegisterPetTap,
-                  ),
-                  _DashboardCard(
-                    title: 'Profile',
-                    icon: Icons.person,
-                    onTap: () {},
                   ),
                 ],
               ),

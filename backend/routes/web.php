@@ -16,6 +16,5 @@ Route::post('/admin/logout', [AuthController::class, 'destroy'])->name('admin.lo
 
 Route::middleware('admin.auth')->group(function () {
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
-    Route::delete('/admin/users/{user}', [DashboardController::class, 'destroy'])->name('admin.users.destroy');
     Route::get('/admin/users/{user}/details', [DashboardController::class, 'show'])->name('admin.users.show');
 });
