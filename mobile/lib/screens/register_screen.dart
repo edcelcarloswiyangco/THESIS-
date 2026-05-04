@@ -30,54 +30,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  Future<void> _editApiBaseUrl() async {
-    final controller = TextEditingController(
-      text: widget.authService.apiService.baseUrl,
-    );
-
-    final value = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('API Base URL'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.url,
-          decoration: const InputDecoration(
-            hintText: 'http://192.168.1.10:8000/api',
-          ),
-          autocorrect: false,
-          enableSuggestions: false,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    controller.dispose();
-
-    if (value == null || value.trim().isEmpty) {
-      return;
-    }
-
-    await widget.authService.apiService.setBaseUrl(value);
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _errorMessage = 'API URL saved. Try register again.';
-    });
-  }
-
   @override
   void dispose() {
     _fullNameController.dispose();
@@ -193,7 +145,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: _addressController,
-                          decoration: const InputDecoration(labelText: 'Address'),
+                          decoration: const InputDecoration(
+                            labelText: 'Address',
+                          ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return 'Enter your address';
@@ -233,10 +187,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         TextButton(
                           onPressed: widget.onSwitchToLogin,
                           child: const Text('Already have an account? Login'),
-                        ),
-                        TextButton(
-                          onPressed: _editApiBaseUrl,
-                          child: const Text('Set API URL'),
                         ),
                       ],
                     ),

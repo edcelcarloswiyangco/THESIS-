@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
+import 'my_pets_screen.dart';
+import 'register_pet_screen.dart';
 import 'report_animal_screen.dart';
 import 'report_list_screen.dart';
 
@@ -62,16 +64,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _openRegisterPetForm() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => RegisterPetScreen(
+          authService: widget.authService,
+          onPetRegistered: (_) async {},
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tabs = <Widget>[
       _DashboardTab(
         user: _currentUser,
-        onMyPetsTap: () => _goToTab(1),
         onReportTap: _openReportForm,
-        onRegisterPetTap: () => _goToTab(1),
+        onRegisterPetTap: _openRegisterPetForm,
       ),
-      _PetsTab(onRegisterPetTap: () => _goToTab(1)),
+      _PetsTab(authService: widget.authService),
       ReportListScreen(authService: widget.authService),
       _ProfileTab(
         user: _currentUser,
@@ -122,13 +134,11 @@ class _HomeScreenState extends State<HomeScreen> {
 class _DashboardTab extends StatelessWidget {
   const _DashboardTab({
     required this.user,
-    required this.onMyPetsTap,
     required this.onReportTap,
     required this.onRegisterPetTap,
   });
 
   final AppUser user;
-  final VoidCallback onMyPetsTap;
   final VoidCallback onReportTap;
   final VoidCallback onRegisterPetTap;
 
@@ -175,19 +185,14 @@ class _DashboardTab extends StatelessWidget {
                 ),
                 children: [
                   _DashboardCard(
-                    title: 'My Pets',
+                    title: 'Register Pet',
                     icon: Icons.pets,
-                    onTap: onMyPetsTap,
+                    onTap: onRegisterPetTap,
                   ),
                   _DashboardCard(
                     title: 'Report Animal',
                     icon: Icons.report,
                     onTap: onReportTap,
-                  ),
-                  _DashboardCard(
-                    title: 'Register Pet',
-                    icon: Icons.add_circle_outline,
-                    onTap: onRegisterPetTap,
                   ),
                 ],
               ),
@@ -283,56 +288,13 @@ class _DashboardCard extends StatelessWidget {
 }
 
 class _PetsTab extends StatelessWidget {
-  const _PetsTab({required this.onRegisterPetTap});
+  const _PetsTab({required this.authService});
 
-  final VoidCallback onRegisterPetTap;
+  final AuthService authService;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'My Pets',
-              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFD9E2EC)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'No pets registered yet.',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tap Register Pet when you are ready to add a pet profile.',
-                    style: TextStyle(color: Colors.grey.shade700),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: onRegisterPetTap,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Register Pet'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return MyPetsScreen(authService: authService);
   }
 }
 

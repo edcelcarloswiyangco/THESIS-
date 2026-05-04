@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_user.dart';
 import '../models/animal_report.dart';
+import '../models/pet_model.dart';
 import 'network_discovery.dart';
 
 class ApiException implements Exception {
@@ -53,7 +53,9 @@ String _normalizeBaseUrl(String baseUrl) {
 
   final source = trimmed.contains('://') ? trimmed : 'http://$trimmed';
   final uri = Uri.parse(source);
-  final path = uri.path.endsWith('/') ? uri.path.substring(0, uri.path.length - 1) : uri.path;
+  final path = uri.path.endsWith('/')
+      ? uri.path.substring(0, uri.path.length - 1)
+      : uri.path;
   final normalizedPath = path.isEmpty ? '/api' : path;
 
   return uri.replace(path: normalizedPath).toString();
@@ -198,9 +200,9 @@ class ApiService {
 
   String mediaUrl(String path) {
     final cleanedPath = path.startsWith('/') ? path.substring(1) : path;
-    return _uri('/media').replace(
-      queryParameters: {'path': cleanedPath},
-    ).toString();
+    return _uri(
+      '/media',
+    ).replace(queryParameters: {'path': cleanedPath}).toString();
   }
 
   Future<AppUser> me(String token) async {
@@ -301,10 +303,7 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw ApiException(
-        _messageFromResponse(
-          response,
-          fallback: 'Failed to change password.',
-        ),
+        _messageFromResponse(response, fallback: 'Failed to change password.'),
       );
     }
   }
@@ -325,6 +324,245 @@ class ApiService {
     if (response.statusCode != 200) {
       throw ApiException(
         _messageFromResponse(response, fallback: 'Failed to log out.'),
+      );
+    }
+  }
+
+  Future<List<Pet>> fetchPets(String token) async {
+    late final http.Response response;
+
+    try {
+      response = await _sendWithRecovery(
+        () => http.get(_uri('/pets'), headers: _headers(token: token)),
+      );
+    } catch (_) {
+      throw ApiException(
+        'Unable to reach the Laravel API. Check the PC IP/base URL and make sure the backend is running.',
+      );
+    }
+
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _messageFromResponse(response, fallback: 'Failed to load pets.'),
+      );
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = decoded['data'];
+
+    if (data is! List) {
+      return const [];
+    }
+
+    return data.whereType<Map<String, dynamic>>().map(Pet.fromJson).toList();
+  }
+
+  Future<Map<String, dynamic>> createPet({
+    required String token,
+    required String name,
+    required String animalType,
+    String? breed,
+    required int age,
+    required String gender,
+    required String rabiesStatus,
+    DateTime? lastVaccinationDate,
+    String? vaccineName,
+    Uint8List? petPhotoBytes,
+    String? petPhotoName,
+    Uint8List? vaccinationCardBytes,
+    String? vaccinationCardName,
+  }) async {
+    final request = http.MultipartRequest('POST', _uri('/pets'));
+    request.headers.addAll(_headers(token: token)..remove('Content-Type'));
+
+    request.fields.addAll({
+      'name': name,
+      'animal_type': animalType,
+      'age': age.toString(),
+      'gender': gender,
+      'rabies_status': rabiesStatus,
+      if (breed != null && breed.isNotEmpty) 'breed': breed,
+      if (lastVaccinationDate != null)
+        'last_vaccination_date': lastVaccinationDate
+            .toIso8601String()
+            .split('T')
+            .first,
+      if (vaccineName != null && vaccineName.isNotEmpty)
+        'vaccine_name': vaccineName,
+    });
+
+    if (vaccinationCardBytes != null && vaccinationCardName != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'vaccination_card',
+          vaccinationCardBytes,
+          filename: vaccinationCardName,
+        ),
+      );
+    }
+
+    if (petPhotoBytes != null && petPhotoName != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'pet_photo',
+          petPhotoBytes,
+          filename: petPhotoName,
+        ),
+      );
+    }
+
+    final response = await http.Response.fromStream(await request.send());
+
+    if (response.statusCode != 201) {
+      throw ApiException(
+        _messageFromResponse(response, fallback: 'Failed to register pet.'),
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+
+    return const {};
+  }
+
+  Future<Map<String, dynamic>> updatePet({
+    required String token,
+    required int petId,
+    required String name,
+    required String animalType,
+    String? breed,
+    required int age,
+    required String gender,
+    required String rabiesStatus,
+    DateTime? lastVaccinationDate,
+    String? vaccineName,
+    Uint8List? petPhotoBytes,
+    String? petPhotoName,
+    Uint8List? vaccinationCardBytes,
+    String? vaccinationCardName,
+  }) async {
+    final request = http.MultipartRequest('POST', _uri('/pets/$petId'));
+    request.headers.addAll(_headers(token: token)..remove('Content-Type'));
+    request.fields['_method'] = 'PATCH';
+
+    request.fields.addAll({
+      'name': name,
+      'animal_type': animalType,
+      'age': age.toString(),
+      'gender': gender,
+      'rabies_status': rabiesStatus,
+      if (breed != null && breed.isNotEmpty) 'breed': breed,
+      if (lastVaccinationDate != null)
+        'last_vaccination_date': lastVaccinationDate
+            .toIso8601String()
+            .split('T')
+            .first,
+      if (vaccineName != null && vaccineName.isNotEmpty)
+        'vaccine_name': vaccineName,
+    });
+
+    if (vaccinationCardBytes != null && vaccinationCardName != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'vaccination_card',
+          vaccinationCardBytes,
+          filename: vaccinationCardName,
+        ),
+      );
+    }
+
+    if (petPhotoBytes != null && petPhotoName != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'pet_photo',
+          petPhotoBytes,
+          filename: petPhotoName,
+        ),
+      );
+    }
+
+    final response = await http.Response.fromStream(await request.send());
+
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _messageFromResponse(response, fallback: 'Failed to update pet.'),
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+
+    return const {};
+  }
+
+  Future<Map<String, dynamic>> addVaccinationRecord({
+    required String token,
+    required int petId,
+    required DateTime vaccinationDate,
+    required Uint8List vaccinationCardBytes,
+    required String vaccinationCardName,
+    String? vaccineName,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      _uri('/pets/$petId/vaccinations'),
+    );
+    request.headers.addAll(_headers(token: token)..remove('Content-Type'));
+    request.fields['vaccination_date'] = vaccinationDate
+        .toIso8601String()
+        .split('T')
+        .first;
+    if (vaccineName != null && vaccineName.isNotEmpty) {
+      request.fields['vaccine_name'] = vaccineName;
+    }
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'vaccination_card',
+        vaccinationCardBytes,
+        filename: vaccinationCardName,
+      ),
+    );
+
+    final response = await http.Response.fromStream(await request.send());
+
+    if (response.statusCode != 201) {
+      throw ApiException(
+        _messageFromResponse(
+          response,
+          fallback: 'Failed to add vaccination record.',
+        ),
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+
+    return const {};
+  }
+
+  Future<void> deletePet(String token, int petId) async {
+    late final http.Response response;
+
+    try {
+      response = await _sendWithRecovery(
+        () =>
+            http.delete(_uri('/pets/$petId'), headers: _headers(token: token)),
+      );
+    } catch (_) {
+      throw ApiException(
+        'Unable to reach the Laravel API. Check the PC IP/base URL and make sure the backend is running.',
+      );
+    }
+
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _messageFromResponse(response, fallback: 'Failed to delete pet.'),
       );
     }
   }
