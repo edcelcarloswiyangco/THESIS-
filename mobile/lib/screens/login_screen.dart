@@ -27,54 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  Future<void> _editApiBaseUrl() async {
-    final controller = TextEditingController(
-      text: widget.authService.apiService.baseUrl,
-    );
-
-    final value = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('API Base URL'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.url,
-          decoration: const InputDecoration(
-            hintText: 'http://192.168.1.10:8000/api',
-          ),
-          autocorrect: false,
-          enableSuggestions: false,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    controller.dispose();
-
-    if (value == null || value.trim().isEmpty) {
-      return;
-    }
-
-    await widget.authService.apiService.setBaseUrl(value);
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _errorMessage = 'API URL saved. Try login again.';
-    });
-  }
-
   @override
   void dispose() {
     _emailController.dispose();
@@ -184,10 +136,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextButton(
                           onPressed: widget.onSwitchToRegister,
                           child: const Text('No account yet? Register'),
-                        ),
-                        TextButton(
-                          onPressed: _editApiBaseUrl,
-                          child: const Text('Set API URL'),
                         ),
                       ],
                     ),

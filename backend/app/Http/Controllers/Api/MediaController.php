@@ -6,16 +6,23 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class MediaController extends Controller
 {
-    public function show(Request $request): StreamedResponse
+    public function show(Request $request): BinaryFileResponse
     {
         $path = (string) $request->query('path', '');
         $path = ltrim($path, '/');
 
-        if ($path === '' || ! Str::startsWith($path, 'reports/')) {
+        if (
+            $path === '' ||
+            ! (
+                Str::startsWith($path, 'reports/') ||
+                Str::startsWith($path, 'pet_photos/') ||
+                Str::startsWith($path, 'vaccination_cards/')
+            )
+        ) {
             abort(404);
         }
 
@@ -23,6 +30,6 @@ class MediaController extends Controller
             abort(404);
         }
 
-        return Storage::disk('public')->response($path);
+        return response()->file(Storage::disk('public')->path($path));
     }
 }
