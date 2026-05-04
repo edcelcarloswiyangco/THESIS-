@@ -235,6 +235,80 @@ class ApiService {
     return AppUser.fromJson(data);
   }
 
+  Future<AppUser> updateMe({
+    required String token,
+    required String contactNumber,
+    required String address,
+  }) async {
+    late final http.Response response;
+
+    try {
+      response = await _sendWithRecovery(
+        () => http.patch(
+          _uri('/me'),
+          headers: _headers(token: token),
+          body: jsonEncode({
+            'contact_number': contactNumber,
+            'address': address,
+          }),
+        ),
+      );
+    } catch (_) {
+      throw ApiException(
+        'Unable to reach the Laravel API. Check the PC IP/base URL and make sure the backend is running.',
+      );
+    }
+
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _messageFromResponse(response, fallback: 'Failed to update profile.'),
+      );
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = decoded['data'] as Map<String, dynamic>?;
+    if (data == null) {
+      throw ApiException('Updated profile payload was empty.');
+    }
+
+    return AppUser.fromJson(data);
+  }
+
+  Future<void> changePassword({
+    required String token,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    late final http.Response response;
+
+    try {
+      response = await _sendWithRecovery(
+        () => http.post(
+          _uri('/me/password'),
+          headers: _headers(token: token),
+          body: jsonEncode({
+            'current_password': currentPassword,
+            'password': newPassword,
+            'password_confirmation': newPassword,
+          }),
+        ),
+      );
+    } catch (_) {
+      throw ApiException(
+        'Unable to reach the Laravel API. Check the PC IP/base URL and make sure the backend is running.',
+      );
+    }
+
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _messageFromResponse(
+          response,
+          fallback: 'Failed to change password.',
+        ),
+      );
+    }
+  }
+
   Future<void> logout(String token) async {
     late final http.Response response;
 

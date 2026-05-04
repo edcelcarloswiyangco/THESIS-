@@ -24,10 +24,22 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
+  late AppUser _currentUser;
+
   void _goToTab(int index) {
     setState(() {
       _currentIndex = index;
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUser = widget.user;
+  }
+
+  Future<void> _updateUser(AppUser user) async {
+    setState(() => _currentUser = user);
   }
 
   Future<void> _openReportForm() async {
@@ -37,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (dialogContext) => Scaffold(
           body: ReportAnimalScreen(
-            user: widget.user,
+            user: _currentUser,
             authService: widget.authService,
             onSubmittedSuccessfully: () async {
               if (Navigator.of(dialogContext).canPop()) {
@@ -54,14 +66,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final tabs = <Widget>[
       _DashboardTab(
-        user: widget.user,
+        user: _currentUser,
         onMyPetsTap: () => _goToTab(1),
         onReportTap: _openReportForm,
         onRegisterPetTap: () => _goToTab(1),
       ),
       _PetsTab(onRegisterPetTap: () => _goToTab(1)),
       ReportListScreen(authService: widget.authService),
-      _ProfileTab(user: widget.user, onLogout: widget.onLogout),
+      _ProfileTab(
+        user: _currentUser,
+        authService: widget.authService,
+        onLogout: widget.onLogout,
+        onUpdateUser: _updateUser,
+      ),
     ];
 
     return Scaffold(
@@ -320,10 +337,17 @@ class _PetsTab extends StatelessWidget {
 }
 
 class _ProfileTab extends StatelessWidget {
-  const _ProfileTab({required this.user, required this.onLogout});
+  const _ProfileTab({
+    required this.user,
+    required this.authService,
+    required this.onLogout,
+    required this.onUpdateUser,
+  });
 
   final AppUser user;
+  final AuthService authService;
   final Future<void> Function() onLogout;
+  final Future<void> Function(AppUser updatedUser) onUpdateUser;
 
   @override
   Widget build(BuildContext context) {
@@ -365,6 +389,77 @@ class _ProfileTab extends StatelessWidget {
                   Text('Contact: ${user.contactNumber}'),
                   const SizedBox(height: 4),
                   Text('Address: ${user.address}'),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () async {
+                            final updated = await showDialog<_ProfileUpdateResult>(
+                              context: context,
+                              builder: (_) => EditProfileDialog(user: user),
+                            );
+
+                            if (updated == null) {
+                              return;
+                            }
+
+                            try {
+                              final savedUser = await authService.updateProfile(
+                                contactNumber: updated.contactNumber,
+                                address: updated.address,
+                              );
+                              await onUpdateUser(savedUser);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Profile updated')),
+                                );
+                              }
+                            } catch (error) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(error.toString())),
+                                );
+                              }
+                            }
+                          },
+                          child: const Text('Edit profile'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      TextButton(
+                        onPressed: () async {
+                          final request = await showDialog<_PasswordChangeRequest>(
+                            context: context,
+                            builder: (_) => const ChangePasswordDialog(),
+                          );
+
+                          if (request == null) {
+                            return;
+                          }
+
+                          try {
+                            await authService.changePassword(
+                              currentPassword: request.currentPassword,
+                              newPassword: request.newPassword,
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Password changed successfully')),
+                              );
+                            }
+                          } catch (error) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(error.toString())),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Change password?'),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
@@ -381,6 +476,206 @@ class _ProfileTab extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProfileUpdateResult {
+  const _ProfileUpdateResult({
+    required this.contactNumber,
+    required this.address,
+  });
+
+  final String contactNumber;
+  final String address;
+}
+
+class _PasswordChangeRequest {
+  const _PasswordChangeRequest({
+    required this.currentPassword,
+    required this.newPassword,
+  });
+
+  final String currentPassword;
+  final String newPassword;
+}
+
+class EditProfileDialog extends StatefulWidget {
+  const EditProfileDialog({super.key, required this.user});
+
+  final AppUser user;
+
+  @override
+  State<EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<EditProfileDialog> {
+  late final TextEditingController _contactController;
+  late final TextEditingController _addressController;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _contactController = TextEditingController(text: widget.user.contactNumber);
+    _addressController = TextEditingController(text: widget.user.address);
+  }
+
+  @override
+  void dispose() {
+    _contactController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit profile'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _contactController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Contact number'),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Enter contact number';
+                }
+                return null;
+              },
+            ),
+            TextFormField(
+              controller: _addressController,
+              decoration: const InputDecoration(labelText: 'Address'),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Enter address';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (!(_formKey.currentState?.validate() ?? false)) {
+              return;
+            }
+
+            Navigator.of(context).pop(
+              _ProfileUpdateResult(
+                contactNumber: _contactController.text.trim(),
+                address: _addressController.text.trim(),
+              ),
+            );
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
+class ChangePasswordDialog extends StatefulWidget {
+  const ChangePasswordDialog({super.key});
+
+  @override
+  State<ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _currentController = TextEditingController();
+  final _newController = TextEditingController();
+  final _confirmController = TextEditingController();
+
+  @override
+  void dispose() {
+    _currentController.dispose();
+    _newController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Change password'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _currentController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Current password'),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Enter current password';
+                }
+                return null;
+              },
+            ),
+            TextFormField(
+              controller: _newController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'New password'),
+              validator: (value) {
+                if (value == null || value.length < 6) {
+                  return 'Minimum 6 characters';
+                }
+                return null;
+              },
+            ),
+            TextFormField(
+              controller: _confirmController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Confirm new password'),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Confirm new password';
+                }
+                if (value != _newController.text) {
+                  return 'Passwords do not match';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (!(_formKey.currentState?.validate() ?? false)) {
+              return;
+            }
+
+            Navigator.of(context).pop(
+              _PasswordChangeRequest(
+                currentPassword: _currentController.text,
+                newPassword: _newController.text,
+              ),
+            );
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

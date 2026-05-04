@@ -502,10 +502,15 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
                               width: double.infinity,
                               child: FilledButton(
                                 onPressed: () async {
+                                  final navigator = Navigator.of(context);
                                   FocusManager.instance.primaryFocus?.unfocus();
                                   await Future<void>.delayed(const Duration(milliseconds: 100));
 
-                                  Navigator.of(context).pop({
+                                  if (!mounted) {
+                                    return;
+                                  }
+
+                                  navigator.pop({
                                     'point': draftPoint,
                                     'searchQuery': _expandedMapSearchController.text.trim(),
                                   });
@@ -830,33 +835,28 @@ class _ReportAnimalScreenState extends State<ReportAnimalScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  FilledButton.icon(
-                    onPressed: () {
-                      if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Back'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 14,
-                      ),
+              Align(
+                alignment: Alignment.topLeft,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Back'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 14,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Report stray animal',
-                      style:
-                          TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Report stray animal',
+                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(

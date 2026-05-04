@@ -65,6 +65,40 @@ class AuthService {
     return result.user;
   }
 
+  Future<AppUser> updateProfile({
+    required String contactNumber,
+    required String address,
+  }) async {
+    final token = _token;
+    if (token == null || token.isEmpty) {
+      throw ApiException('Your session expired. Please login again.');
+    }
+
+    final user = await _apiService.updateMe(
+      token: token,
+      contactNumber: contactNumber,
+      address: address,
+    );
+    _currentUser = user;
+    return user;
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final token = _token;
+    if (token == null || token.isEmpty) {
+      throw ApiException('Your session expired. Please login again.');
+    }
+
+    await _apiService.changePassword(
+      token: token,
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+  }
+
   Future<void> logout() async {
     final token = _token;
 
