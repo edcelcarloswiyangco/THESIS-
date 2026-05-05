@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AnimalReport;
+use App\Models\Pet;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -172,6 +173,19 @@ class DashboardController extends Controller
 
         $totalPets = $hasPetsTable ? DB::table('pets')->count() : 0;
 
+        // Fetch pets grouped by rabies vaccination status
+        $petsByStatus = [
+            'vaccinated' => [],
+            'not_vaccinated' => [],
+            'unknown' => [],
+        ];
+
+        if ($hasPetsTable) {
+            $petsByStatus['vaccinated'] = Pet::where('rabies_status', 'vaccinated')->with('user')->get();
+            $petsByStatus['not_vaccinated'] = Pet::where('rabies_status', 'not_vaccinated')->with('user')->get();
+            $petsByStatus['unknown'] = Pet::where('rabies_status', 'unknown')->with('user')->get();
+        }
+
         return view('admin.dashboard', [
             'users' => $users,
             'summary' => [
@@ -184,6 +198,7 @@ class DashboardController extends Controller
                 'search' => $reportSearch,
                 'status' => $reportStatusFilter,
             ],
+            'pets_by_status' => $petsByStatus,
             'analytics' => [
                 'today_status_counts' => $todayStatusCounts,
                 'status_breakdown' => $statusBreakdown,
