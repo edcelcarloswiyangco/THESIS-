@@ -705,8 +705,31 @@ class ApiService {
 
 class ApiConfig {
   static const String overrideBaseUrl = String.fromEnvironment('API_BASE_URL');
-  static const String defaultLanBaseUrl = 'http://100.83.103.85:8000/api';
   static const String _storedBaseUrlKey = 'api_base_url';
+
+  static String get _defaultBaseUrl {
+    if (kIsWeb) {
+      return 'http://127.0.0.1:8000/api';
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'http://10.0.2.2:8000/api';
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+      case TargetPlatform.fuchsia:
+        return 'http://127.0.0.1:8000/api';
+    }
+  }
+
+  static const List<String> _commonFallbackBaseUrls = [
+    'http://127.0.0.1:8000/api',
+    'http://localhost:8000/api',
+    'http://10.0.2.2:8000/api',
+    'http://10.0.3.2:8000/api',
+  ];
 
   static Future<String> loadBaseUrl() async {
     final preferences = await SharedPreferences.getInstance();
@@ -728,7 +751,15 @@ class ApiConfig {
       return cleaned;
     }
 
-    return defaultLanBaseUrl;
+    for (final fallbackBaseUrl in _commonFallbackBaseUrls) {
+      if (await _isReachable(fallbackBaseUrl)) {
+        final cleaned = _normalizeBaseUrl(fallbackBaseUrl);
+        await preferences.setString(_storedBaseUrlKey, cleaned);
+        return cleaned;
+      }
+    }
+
+    return _defaultBaseUrl;
   }
 
   static Future<void> saveBaseUrl(String baseUrl) async {
@@ -752,20 +783,6 @@ class ApiConfig {
       return overrideBaseUrl;
     }
 
-    if (kIsWeb) {
-      return 'http://127.0.0.1:8000/api';
-    }
-
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return defaultLanBaseUrl;
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-        return 'http://127.0.0.1:8000/api';
-      case TargetPlatform.fuchsia:
-        return 'http://127.0.0.1:8000/api';
-    }
+    return _defaultBaseUrl;
   }
 }
