@@ -709,6 +709,10 @@ class ApiConfig {
   static const String _storedBaseUrlKey = 'api_base_url';
 
   static Future<String> loadBaseUrl() async {
+    if (overrideBaseUrl.isNotEmpty) {
+      return _normalizeBaseUrl(overrideBaseUrl);
+    }
+
     final preferences = await SharedPreferences.getInstance();
     final storedBaseUrl = preferences.getString(_storedBaseUrlKey);
 
@@ -749,7 +753,7 @@ class ApiConfig {
 
   static String get baseUrl {
     if (overrideBaseUrl.isNotEmpty) {
-      return overrideBaseUrl;
+      return _normalizeBaseUrl(overrideBaseUrl);
     }
 
     if (kIsWeb) {

@@ -1,17 +1,43 @@
-# mobile
+# THESIS Mobile
 
-A new Flutter project.
+This folder contains the Flutter app. Use `API_BASE_URL` to point the app at the correct backend.
 
-## Getting Started
+## Local Testing
 
-This project is a starting point for a Flutter application.
+Android emulator:
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Physical phone on the same Wi-Fi network:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter run --dart-define=API_BASE_URL=http://<your-pc-lan-ip>:8000/api
+```
+
+If you want to build an APK for testing:
+
+```bash
+flutter build apk --dart-define=API_BASE_URL=http://<your-pc-lan-ip>:8000/api
+```
+
+## Production Build
+
+Use the deployed Laravel Cloud URL:
+
+```bash
+flutter build apk --dart-define=API_BASE_URL=https://your-cloud-domain/api
+```
+
+For iOS, use the same pattern with the production API URL:
+
+```bash
+flutter build ios --dart-define=API_BASE_URL=https://your-cloud-domain/api
+```
+
+## Notes
+
+- `API_BASE_URL` overrides the stored/discovered local URL.
+- Keep the backend health endpoint available at `/api/health`.
+- For phone testing, `localhost` will not work because the device cannot reach your PC through that name.
